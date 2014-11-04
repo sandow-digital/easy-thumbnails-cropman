@@ -11,6 +11,8 @@ except ImportError:
 
 from easy_thumbnails import utils
 
+from easy_thumbnails.cropman.detector import Detector
+
 
 def _compare_entropy(start_slice, end_slice, slice, difference):
     """
@@ -41,6 +43,20 @@ def _points_table():
         for j in itertools.repeat(i, 256):
             yield j
 
+
+def _bounding_rect(faces):
+    top,    left  =  sys.maxint,  sys.maxint
+    bottom, right = -sys.maxint, -sys.maxint
+    for (x, y, w, h) in faces:
+        if x < left:
+            left = x
+        if x+w > right:
+            right = x+w
+        if y < top:
+            top = y
+        if y+h > bottom:
+            bottom = y+h
+    return top, left, bottom, right
 
 def colorspace(im, bw=False, replace_alpha=False, **kwargs):
     """
@@ -213,6 +229,25 @@ def scale_and_crop(im, size, crop=False, upscale=False, zoom=None, target=None,
         diff_y = int(source_y - min(source_y, target_y))
         if crop != 'scale' and (diff_x or diff_y):
             if isinstance(target, six.string_types):
+                if crop == 'faces':
+                    detector = Detector()
+                    # Make sure we're converted to RGB
+                    rgb_im = im.convert('RGB')
+                    open_cv_image = numpy.array(rgb_im)
+                    # Convert RGB to BGR
+                    open_cv_image = open_cv_image[:, :, ::-1].copy()
+                    faces = detector.detect_faces(open_cv_image)
+                    print "faces are "
+                    print faces
+                    if len(faces) != 0:
+                        top, left, bottom, right = _bounding_rect(faces)
+                        target_center_x = (left + right) / 2
+                        target_center_y = (top + bottom) / 2
+                        print "target center x"
+                        print target_center_x
+                        print "target center y"
+                        print target_center_y
+
                 target = re.match(r'(\d+)?,(\d+)?$', target)
                 if target:
                     target = target.groups()
